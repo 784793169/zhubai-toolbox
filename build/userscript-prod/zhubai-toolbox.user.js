@@ -4,7 +4,7 @@
 // @namespace            https://github.com/utags/zhubai-toolbox
 // @homepage             https://github.com/utags/zhubai-toolbox#readme
 // @supportURL           https://github.com/utags/zhubai-toolbox/issues
-// @version              0.0.2
+// @version              0.0.3
 // @description          Tools for Zhubai creators.
 // @description:zh-CN    为竹白创作者的工具箱，包括订阅者信息导出，Markdown 编辑器等功能。更多功能欢迎交流。
 // @icon                 https://zhubai.love/favicon.png
@@ -13,6 +13,7 @@
 // @match                https://zhubai.love/*
 // @connect              zhubai.love
 // @grant                GM_addElement
+// @grant                GM_addStyle
 // ==/UserScript==
 //
 ;(() => {
@@ -91,6 +92,9 @@
     parentNode.append(tagName)
     return tagName
   }
+  var addStyle = (styleText) => GM_addStyle(styleText)
+  var content_default =
+    ".zbtb{width:100%;height:100%;position:fixed;top:72px;left:30px;padding:10px;background-color:#fff;font-weight:600;font-size:16px;color:#060e4b}.zbtb button{font-weight:600;font-size:16px;color:#060e4b}.zbtb button:disabled{opacity:40%}.zbtb textarea{width:90%;height:40%;padding:5px}"
   async function fetchZhubaiSubscriptions(
     page,
     subscriberEmailSet,
@@ -116,59 +120,83 @@
     return { limit, total }
   }
   async function main() {
-    const modal = addElement(document.body, "div", {
-      style:
-        "width: 100%; height: 100%; position: fixed; top: 72px; left: 30px; padding: 10px; background-color: #fff;",
-    })
-    const message = addElement(modal, "p", {
-      style: "font-weight: 600; font-size: 16px; color: #060e4b;",
-      textContent: "\u{1F680} \u6B63\u5728\u5BFC\u51FA\u6570\u636E ...",
-    })
-    addElement(modal, "p", {
-      style: "font-weight: 600; font-size: 16px; color: #060e4b;",
-      textContent: "\u{1F4EE} \u90AE\u7BB1\u8BA2\u9605\u5217\u8868",
-    })
-    const textarea = addElement(modal, "textarea", {
-      style: "width: 90%; height: 40%; padding: 5px;",
-    })
-    addElement(modal, "p", {
-      style: "font-weight: 600; font-size: 16px; color: #060e4b;",
-      textContent:
-        "\u{1F4D6} \u8BE6\u7EC6\u8BA2\u9605\u7528\u6237\u6570\u636E\uFF0C\u5305\u542B\u90AE\u7BB1\u8BA2\u9605\u548C\u5FAE\u4FE1\u8BA2\u9605",
-    })
-    const textarea2 = addElement(modal, "textarea", {
-      style: "width: 90%; height: 40%; padding: 5px;",
-    })
+    addStyle(content_default)
     const subscriberEmailSet = /* @__PURE__ */ new Set()
     const subscribers = []
     let page = 1
-    try {
-      while (true) {
-        const result = await fetchZhubaiSubscriptions(
-          page,
-          subscriberEmailSet,
-          subscribers
-        )
-        const total = result.total
-        const limit = result.limit
-        message.textContent = `\u{1F697} \u6B63\u5728\u83B7\u53D6\u6570\u636E: ${page} / ${Math.round(
-          total / 20
-        )}`
-        if (subscribers.length > 0) {
-          textarea.value = JSON.stringify([...subscriberEmailSet], null, 2)
-          textarea2.value = JSON.stringify(subscribers, null, 2)
+    let isRunning = false
+    let paused = false
+    const modal = addElement(document.body, "div", {
+      class: "zbtb",
+    })
+    const toolbar = addElement(modal, "div", {
+      style: "display: flex;",
+    })
+    const pauseButton = addElement(toolbar, "button", {
+      textContent: "\u6682\u505C \u23F8\uFE0F",
+      async onclick(event) {
+        paused = !paused
+        event.target.textContent = paused
+          ? "\u7EE7\u7EED \u25B6\uFE0F"
+          : "\u6682\u505C \u23F8\uFE0F"
+        if (!paused) {
+          await run()
         }
-        if (limit * page < total) {
-          page++
-        } else {
-          break
-        }
+      },
+    })
+    const message = addElement(modal, "p", {
+      textContent: "\u{1F680} \u6B63\u5728\u5BFC\u51FA\u6570\u636E ...",
+    })
+    addElement(modal, "p", {
+      textContent: "\u{1F4EE} \u90AE\u7BB1\u8BA2\u9605\u5217\u8868",
+    })
+    const textarea = addElement(modal, "textarea")
+    addElement(modal, "p", {
+      textContent:
+        "\u{1F4D6} \u8BE6\u7EC6\u8BA2\u9605\u7528\u6237\u6570\u636E\uFF0C\u5305\u542B\u90AE\u7BB1\u8BA2\u9605\u548C\u5FAE\u4FE1\u8BA2\u9605",
+    })
+    const textarea2 = addElement(modal, "textarea")
+    const run = async () => {
+      if (isRunning) {
+        return
       }
-      message.textContent = `\u{1F389} \u6570\u636E\u5BFC\u51FA\u5B8C\u6BD5\u3002\u8BF7\u590D\u5236\u4E0B\u9762\u7684\u6570\u636E\uFF0C\u505A\u597D\u5907\u4EFD\u3002`
-    } catch (error) {
-      console.error(error)
-      message.innerHTML = `\u6570\u636E\u5BFC\u51FA\u5931\u8D25\uFF0C\u6709\u95EE\u9898\u8BF7\u5728 <a href="https://github.com/utags/zhubai-toolbox/issues" target="_blank">GitHub</a> \u6216 <a href="https://greasyfork.org/scripts/463934" target="_blank">Greasy Fork</a> \u53CD\u9988\u3002`
+      try {
+        isRunning = true
+        while (isRunning) {
+          const result = await fetchZhubaiSubscriptions(
+            page,
+            subscriberEmailSet,
+            subscribers
+          )
+          const total = result.total
+          const limit = result.limit
+          message.textContent = `\u{1F697} \u6B63\u5728\u83B7\u53D6\u6570\u636E: ${page} / ${Math.round(
+            total / 20
+          )}`
+          if (subscribers.length > 0) {
+            textarea.value = JSON.stringify([...subscriberEmailSet], null, 2)
+            textarea2.value = JSON.stringify(subscribers, null, 2)
+          }
+          if (limit * page < total) {
+            page++
+            if (paused) {
+              message.textContent = `\u23F8\uFE0F \u6682\u505C\u4E2D\u3002\u5DF2\u83B7\u53D6\u6570\u636E: ${
+                page - 1
+              } / ${Math.round(total / 20)}`
+              isRunning = false
+            }
+          } else {
+            message.textContent = `\u{1F389} \u6570\u636E\u5BFC\u51FA\u5B8C\u6BD5\u3002\u8BF7\u590D\u5236\u4E0B\u9762\u7684\u6570\u636E\uFF0C\u505A\u597D\u5907\u4EFD\u3002`
+            isRunning = false
+            pauseButton.disabled = true
+          }
+        }
+      } catch (error) {
+        console.error(error)
+        message.innerHTML = `\u6570\u636E\u5BFC\u51FA\u5931\u8D25\uFF0C\u6709\u95EE\u9898\u8BF7\u5728 <a href="https://github.com/utags/zhubai-toolbox/issues" target="_blank">GitHub</a> \u6216 <a href="https://greasyfork.org/scripts/463934" target="_blank">Greasy Fork</a> \u53CD\u9988\u3002`
+      }
     }
+    await run()
   }
   var intervalId = setInterval(() => {
     const button = document.querySelector("th:nth-of-type(6) button")
@@ -179,8 +207,8 @@
       })
       button.after(newButton)
       button.remove()
-      newButton.addEventListener("click", (event) => {
-        main()
+      newButton.addEventListener("click", async (event) => {
+        await main()
         event.preventDefault()
       })
       clearInterval(intervalId)
