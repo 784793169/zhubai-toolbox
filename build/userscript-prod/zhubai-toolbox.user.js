@@ -4,7 +4,7 @@
 // @namespace            https://github.com/utags/zhubai-toolbox
 // @homepage             https://github.com/utags/zhubai-toolbox#readme
 // @supportURL           https://github.com/utags/zhubai-toolbox/issues
-// @version              0.1.1
+// @version              0.1.2
 // @description          Tools for Zhubai creators and readers. 为竹白（zhubai.love）创作者与阅读者的浏览器扩展、油猴脚本，包括详情页显示文章目录，详情页显示网站目录大纲（TOC），订阅者信息导出，Markdown 编辑器等功能。更多功能欢迎交流。
 // @description:zh-CN    为竹白（zhubai.love）创作者与阅读者的浏览器扩展、油猴脚本，包括详情页显示文章目录，详情页显示网站目录大纲（TOC），订阅者信息导出，Markdown 编辑器等功能。更多功能欢迎交流。
 // @icon                 https://zhubai.love/favicon.png
@@ -16,6 +16,8 @@
 // ==/UserScript==
 //
 //// Recent Updates
+//// - 0.1.2 2023.05.05
+////    - 修改上一期，下一期按钮，修复 Violentmonkey, Greasemonkey(Firefox), Userscripts(Safari) 的兼容性问题
 //// - 0.1.1 2023.04.28
 ////    - 详情页右侧栏显示网站目录大纲（TOC）与工具栏
 //// - 0.1.0 2023.04.27
@@ -24,16 +26,30 @@
 ;(() => {
   "use strict"
   var doc = document
-  var $ = (element, selectors) =>
-    element && typeof element === "object"
-      ? element.querySelector(selectors)
-      : doc.querySelector(element)
-  var $$ = (element, selectors) =>
-    element && typeof element === "object"
-      ? [...element.querySelectorAll(selectors)]
-      : [...doc.querySelectorAll(element)]
+  var $ = (selectors, element) => (element || doc).querySelector(selectors)
+  var $$ = (selectors, element) => [
+    ...(element || doc).querySelectorAll(selectors),
+  ]
   var createElement = (tagName, attributes) =>
     setAttributes(doc.createElement(tagName), attributes)
+  var addElement = (parentNode, tagName, attributes) => {
+    if (!parentNode) {
+      return
+    }
+    if (typeof parentNode === "string") {
+      attributes = tagName
+      tagName = parentNode
+      parentNode = doc.head
+    }
+    if (typeof tagName === "string") {
+      const element = createElement(tagName, attributes)
+      parentNode.append(element)
+      return element
+    }
+    setAttributes(tagName, attributes)
+    parentNode.append(tagName)
+    return tagName
+  }
   var addEventListener = (element, type, listener, options) => {
     if (!element) {
       return
@@ -95,16 +111,19 @@
     Object.hasOwn = (instance, prop) =>
       Object.prototype.hasOwnProperty.call(instance, prop)
   }
-  var addElement = (parentNode, tagName, attributes) => {
-    if (typeof parentNode === "string" || typeof tagName === "string") {
-      const element = GM_addElement(parentNode, tagName, attributes)
-      setAttributes(element, attributes)
-      return element
-    }
-    setAttributes(tagName, attributes)
-    parentNode.append(tagName)
-    return tagName
-  }
+  var addElement2 =
+    typeof GM_addElement === "function"
+      ? (parentNode, tagName, attributes) => {
+          if (typeof parentNode === "string" || typeof tagName === "string") {
+            const element = GM_addElement(parentNode, tagName)
+            setAttributes(element, attributes)
+            return element
+          }
+          setAttributes(tagName, attributes)
+          parentNode.append(tagName)
+          return tagName
+        }
+      : addElement
   var content_default =
     ".zbtb{width:100%;height:100%;position:fixed;top:72px;left:30px;padding:10px;background-color:#fff;font-weight:600;font-size:16px;color:#060e4b}.zbtb button{font-weight:600;font-size:16px;color:#060e4b}.zbtb button:disabled{opacity:40%}.zbtb textarea{width:90%;height:40%;padding:5px}#left_aside,#right_aside{display:none}html[data-zbtb=posts-entry]{--aside-width: 300px;margin-left:var(--aside-width);margin-right:var(--aside-width)}html[data-zbtb=posts-entry] nav{left:0}html[data-zbtb=posts-entry] #left_aside,html[data-zbtb=posts-entry] #right_aside{display:block;position:fixed;top:72px;left:0;padding:0 0 72px;height:100%;max-width:var(--aside-width);overflow:hidden;box-sizing:border-box}html[data-zbtb=posts-entry] #left_aside .container,html[data-zbtb=posts-entry] #right_aside .container{padding:20px;height:100%;overflow:auto;box-sizing:border-box}html[data-zbtb=posts-entry] #left_aside .item,html[data-zbtb=posts-entry] #right_aside .item{display:block;text-decoration:none;margin-bottom:20px;cursor:pointer}html[data-zbtb=posts-entry] #left_aside .title,html[data-zbtb=posts-entry] #right_aside .title{margin:0;font-weight:600;font-size:14px;line-height:20px;color:#1a1a1a;word-wrap:break-word;overflow-wrap:break-word}html[data-zbtb=posts-entry] #left_aside .item.current .title,html[data-zbtb=posts-entry] #right_aside .item.current .title{color:var(--theme-primary-color)}html[data-zbtb=posts-entry] #right_aside{left:unset;right:0;padding:0 0 122px}html[data-zbtb=posts-entry] #right_aside h2{padding-left:20px}html[data-zbtb=posts-entry] #right_aside h3{padding-left:40px}html[data-zbtb=posts-entry] #right_aside .toolbar{display:flex;justify-content:space-around;align-items:center;overflow:hidden;box-sizing:border-box;width:var(--aside-width);height:50px}html[data-zbtb=posts-entry] #right_aside .toolbar .button{height:24px;width:24px;background:none;border:none;outline:none;border-radius:4px;font-family:inherit;-webkit-tap-highlight-color:rgba(0,0,0,0);padding:10px;color:#060e4b}html[data-zbtb=posts-entry] #right_aside .toolbar .button:hover{background:rgba(0,0,0,.05);opacity:.8}html[data-zbtb=posts-entry] #right_aside .toolbar .button.disabled{opacity:.4;background:none;cursor:not-allowed}@media(max-width: 1000px){html[data-zbtb=posts-entry]{--aside-width: 200px}}@media(max-width: 767px){html[data-zbtb=posts-entry]{--aside-width: 0}html[data-zbtb=posts-entry] #left_aside,html[data-zbtb=posts-entry] #right_aside{display:none}}"
   var listeners = {}
@@ -223,19 +242,19 @@
   async function showPostList() {
     const aside =
       $("#left_aside") ||
-      addElement(document.body, "aside", {
+      addElement2(document.body, "aside", {
         id: "left_aside",
       })
     const container =
       $("#left_aside .container") ||
-      addElement(aside, "div", {
+      addElement2(aside, "div", {
         class: "container",
       })
     container.innerHTML = ""
     const currentId = (/posts\/(\d+)/.exec(location.pathname) || [])[1]
     const postList = await getAllPostListFromCache()
     for (const post of postList) {
-      const a = addElement(container, "a", {
+      const a = addElement2(container, "a", {
         class: currentId === post.id ? "item current" : "item",
         href: "/posts/" + post.id,
       })
@@ -244,7 +263,7 @@
           a.scrollIntoView({ block: "nearest" })
         }, 1)
       }
-      addElement(a, "h2", {
+      addElement2(a, "h2", {
         class: "title",
         textContent: post.title,
       })
@@ -253,12 +272,12 @@
   async function showToolbar() {
     const aside =
       $("#right_aside") ||
-      addElement(document.body, "aside", {
+      addElement2(document.body, "aside", {
         id: "right_aside",
       })
     const container =
       $("#right_aside .toolbar") ||
-      addElement(aside, "div", {
+      addElement2(aside, "div", {
         class: "toolbar",
       })
     container.innerHTML = ""
@@ -270,14 +289,14 @@
       const post = postList[i]
       if (post.id === currentId) {
         if (i > 0) {
-          previousId = postList[i - 1].id
+          nextId = postList[i - 1].id
         }
         if (i < postList.length - 1) {
-          nextId = postList[i + 1].id
+          previousId = postList[i + 1].id
         }
       }
     }
-    addElement(container, "a", {
+    addElement2(container, "a", {
       class: previousId ? "button" : "button disabled",
       href: previousId ? "/posts/" + previousId : "",
       title: "\u4E0A\u4E00\u671F",
@@ -290,7 +309,7 @@
         }
       },
     })
-    addElement(container, "a", {
+    addElement2(container, "a", {
       class: nextId ? "button" : "button disabled",
       href: nextId ? "/posts/" + nextId : "",
       title: "\u4E0B\u4E00\u671F",
@@ -304,7 +323,7 @@
         }
       },
     })
-    addElement(container, "a", {
+    addElement2(container, "a", {
       class: "button",
       title: "\u56DE\u5230\u9876\u90E8",
       innerHTML: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -319,7 +338,7 @@
             })
       },
     })
-    addElement(container, "a", {
+    addElement2(container, "a", {
       class: "button disabled",
       title:
         "\u8BBE\u7F6E\uFF08\u4E0B\u4E2A\u7248\u672C\u63A8\u51FA\u6B64\u529F\u80FD\uFF09",
@@ -341,12 +360,12 @@
     var _a
     const aside =
       $("#right_aside") ||
-      addElement(document.body, "aside", {
+      addElement2(document.body, "aside", {
         id: "right_aside",
       })
     const container =
       $("#right_aside .container") ||
-      addElement(aside, "div", {
+      addElement2(aside, "div", {
         class: "container",
       })
     container.innerHTML = ""
@@ -356,7 +375,7 @@
         skippedFirst = true
         continue
       }
-      const a = addElement(container, "a", {
+      const a = addElement2(container, "a", {
         class: "item",
         onclick() {
           setTimeout(() => {
@@ -372,7 +391,7 @@
           })
         },
       })
-      addElement(a, heading.tagName.toLowerCase(), {
+      addElement2(a, heading.tagName.toLowerCase(), {
         class: "title",
         textContent:
           (_a = heading.textContent) == null
@@ -418,13 +437,13 @@
     let page2 = 1
     let isRunning = false
     let paused = false
-    const modal = addElement(document.body, "div", {
+    const modal = addElement2(document.body, "div", {
       class: "zbtb",
     })
-    const toolbar = addElement(modal, "div", {
+    const toolbar = addElement2(modal, "div", {
       style: "display: flex;",
     })
-    const pauseButton = addElement(toolbar, "button", {
+    const pauseButton = addElement2(toolbar, "button", {
       textContent: "\u6682\u505C \u23F8\uFE0F",
       async onclick(event) {
         paused = !paused
@@ -436,18 +455,18 @@
         }
       },
     })
-    const message = addElement(modal, "p", {
+    const message = addElement2(modal, "p", {
       textContent: "\u{1F680} \u6B63\u5728\u5BFC\u51FA\u6570\u636E ...",
     })
-    addElement(modal, "p", {
+    addElement2(modal, "p", {
       textContent: "\u{1F4EE} \u90AE\u7BB1\u8BA2\u9605\u5217\u8868",
     })
-    const textarea = addElement(modal, "textarea")
-    addElement(modal, "p", {
+    const textarea = addElement2(modal, "textarea")
+    addElement2(modal, "p", {
       textContent:
         "\u{1F4D6} \u8BE6\u7EC6\u8BA2\u9605\u7528\u6237\u6570\u636E\uFF0C\u5305\u542B\u90AE\u7BB1\u8BA2\u9605\u548C\u5FAE\u4FE1\u8BA2\u9605",
     })
-    const textarea2 = addElement(modal, "textarea")
+    const textarea2 = addElement2(modal, "textarea")
     const run = async () => {
       if (isRunning) {
         return
@@ -492,7 +511,7 @@
   }
   async function main2() {
     if (!$("#zbtb_style")) {
-      addElement(document.head, "style", {
+      addElement2(document.head, "style", {
         id: "zbtb_style",
         textContent: content_default,
       })
